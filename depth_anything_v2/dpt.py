@@ -160,7 +160,7 @@ class DepthAnythingV2(nn.Module):
         use_clstoken=False
     ):
         super(DepthAnythingV2, self).__init__()
-        
+
         self.intermediate_layer_idx = {
             'vits': [2, 5, 8, 11],
             'vitb': [2, 5, 8, 11], 
@@ -184,16 +184,16 @@ class DepthAnythingV2(nn.Module):
         return depth.squeeze(1)
     
     @torch.no_grad()
-    def infer_image(self, raw_image, input_size=518):
-        image, (h, w) = self.image2tensor(raw_image, input_size)
+    def infer_image(self, raw_image, input_size=518,target_size=(336,336),gpu=None):
+        image, (h, w) = self.image2tensor(raw_image, input_size,gpu)
         
-        depth = self.forward(image)
+        depth = self.forward(image.half())
         
-        depth = F.interpolate(depth[:, None], (h, w), mode="bilinear", align_corners=True)[0, 0]
+        depth = torch.nn.AdaptiveAvgPool2d(target_size)(depth)  
         
-        return depth.cpu().numpy()
+        return depth.cpu()
     
-    def image2tensor(self, raw_image, input_size=518):        
+    def image2tensor(self, raw_image, input_size=518,gpu=None):        
         transform = Compose([
             Resize(
                 width=input_size,
@@ -216,6 +216,7 @@ class DepthAnythingV2(nn.Module):
         image = torch.from_numpy(image).unsqueeze(0)
         
         DEVICE = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
+
         image = image.to(DEVICE)
         
         return image, (h, w)
